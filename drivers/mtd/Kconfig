@@ -142,6 +142,44 @@ config MTD_CMDLINE_PARTS
 
 	  If unsure, say 'N'.
 
+config MTD_GLUMBOOT
+	bool "GlumBoot"
+	depends on MTD_PARTITIONS = "y" && MTD = "y"
+	---help---
+	  glumboot.
+	  read partition table stored on device aligned to erasesize.
+	  the following structures are used for making the partition table;
+	    struct glumboot_partition_type {
+	      char name[20];
+	      u32 offset;
+	      u32 size;
+	      u32 flags;
+	    };
+	    struct glumboot_partition_table {
+	      char magic[8];       /* "glumboot" */
+	      u8 reserved__1[4];   /* reserved; zeroed */
+	      u32 partition_count;
+	      u32 crc32;
+	      u8 reserved__2[12];  /* reserved; zeroed */
+	      struct glumboot_partition_type partitions[0];
+	    };
+	  sizeof table = sizeof(glumboot_partition_table) +
+	                   partition_count * sizeof(glumboot_partition_type).
+	  crc32 = zlib crc32 of glumboot_partition_type data.
+
+config MTD_GLUMBOOT_OFFSET
+	int "offset to start search for glumboot table"
+	default "-1"
+	---help---
+	  if negative; mtd.size - (offset * erasesize)
+	  if positive; (offset * erasesize)
+
+config MTD_GLUMBOOT_SEARCH_DEPTH
+	int "number of blocks to search for glumboot"
+	default "32"
+	---help---
+	  maximum number of blocks to run search for glumboot table
+
 config MTD_AFS_PARTS
 	tristate "ARM Firmware Suite partition parsing"
 	depends on ARM

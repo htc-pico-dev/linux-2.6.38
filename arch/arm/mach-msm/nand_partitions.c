@@ -46,7 +46,26 @@ struct msm_ptbl_entry {
 	__u32 flags;
 };
 
+#ifdef CONFIG_GLUMBOOT_COMPAT
+/*
+ * partition offsets and sizes from atag are relative to erasesize.
+ * the msm_nand controller fixes them up down the boot.
+ *
+ * offset = offset * mtd.erasesize;
+ * size = size * info->mtd.erasesize;
+ *
+ * to the best of my knowledge, pico ships with two NAND erasesizes,
+ * 128kbyte & 256kbyte.
+ *
+ * allocate atleast 1mbyte for glumboot part
+ *
+ */
+#define GLUMBOOT_PART_SIZE 8
+
+#define MSM_MAX_PARTITIONS 9
+#else
 #define MSM_MAX_PARTITIONS 8
+#endif
 
 static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
 static char msm_nand_names[MSM_MAX_PARTITIONS * 16];
@@ -59,6 +78,10 @@ static int __init parse_tag_msm_partition(const struct tag *tag)
 	char *name = msm_nand_names;
 	struct msm_ptbl_entry *entry = (void *) &tag->u;
 	unsigned count, n;
+#ifdef CONFIG_GLUMBOOT_COMPAT
+	struct mtd_partition *glumpart;
+	int idx_siphon = -1;
+#endif
 
 	count = (tag->hdr.size - 2) /
 		(sizeof(struct msm_ptbl_entry) / sizeof(__u32));
@@ -69,6 +92,17 @@ static int __init parse_tag_msm_partition(const struct tag *tag)
 	for (n = 0; n < count; n++) {
 		memcpy(name, entry->name, 15);
 		name[15] = 0;
+
+#ifdef CONFIG_GLUMBOOT_COMPAT
+		/*
+		 * physical layout on pico
+		 *   recovery:boot:system:cache:devlog:userdata:misc
+		 * userdata is the last partition intended for user access
+		 *
+		 */
+		if (!strcmp(name, "userdata"))
+			idx_siphon = n;
+#endif
 
 		ptn->name = name;
 		ptn->offset = entry->offset;
@@ -82,6 +116,22 @@ static int __init parse_tag_msm_partition(const struct tag *tag)
 		entry++;
 		ptn++;
 	}
+
+#ifdef CONFIG_GLUMBOOT_COMPAT
+	if (idx_siphon > -1) {
+		ptn = msm_nand_partitions + idx_siphon;
+		ptn->size = ptn->size - GLUMBOOT_PART_SIZE;
+
+		memset(name, 0, 16);
+		memcpy(name, "glumboot", 8);
+		name[15] = 0;
+		glumpart = msm_nand_partitions + count;
+		glumpart->name = name;
+		glumpart->offset = ptn->offset + ptn->size;
+		glumpart->size = GLUMBOOT_PART_SIZE;
+		count++;
+	}
+#endif
 
 	msm_nand_data.nr_parts = count;
 	msm_nand_data.parts = msm_nand_partitions;

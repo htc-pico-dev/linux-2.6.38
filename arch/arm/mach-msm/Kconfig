@@ -1813,3 +1813,11 @@ config SMART_DUMMY_PICO
 	help
 	  This option would switch memory settings for smart dummy
 endif
+
+config GLUMBOOT_COMPAT
+	depends on MACH_PICO
+	bool "patch partition table for glumboot compat"
+	default n
+	---help---
+	  adds a "glumboot" mtd partition to the table for ease of
+	  userspace tools

@@ -6886,7 +6886,11 @@ void msm_nand_release(struct mtd_info *mtd)
 EXPORT_SYMBOL_GPL(msm_nand_release);
 
 #ifdef CONFIG_MTD_PARTITIONS
+#ifdef CONFIG_MTD_GLUMBOOT
+static const char *part_probes[] = { "cmdlinepart", "GlumBoot", NULL,  };
+#else
 static const char *part_probes[] = { "cmdlinepart", NULL,  };
+#endif
 #endif
 
 struct msm_nand_info {
